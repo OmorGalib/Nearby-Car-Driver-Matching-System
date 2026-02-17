@@ -8,8 +8,7 @@
     "dev": "nodemon server.js",
     "seed": "node scripts/seedDatabase.js",
     "seed:prod": "node scripts/seed-production.js",
-    "build": "echo 'Build complete'",
-    "vercel-build": "echo 'Skipping build for Vercel'"
+    "vercel-build": "echo 'Build complete'"
   },
   "keywords": ["nodejs", "express", "postgresql", "geolocation"],
   "author": "",
