@@ -1,0 +1,492 @@
+{
+  "info": {
+    "name": "Nearby Driver Matching API",
+    "description": "Complete API collection for Nearby Car & Driver Matching System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate unique email and phone",
+                  "const timestamp = Date.now();",
+                  "const randomNum = Math.floor(Math.random() * 10000);",
+                  "pm.variables.set('unique_email', `user${timestamp}@example.com`);",
+                  "pm.variables.set('unique_phone', `+1234567${randomNum}`);",
+                  "pm.variables.set('unique_name', `Test User ${randomNum}`);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registration successful', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.not.be.null;",
+                  "    pm.expect(jsonData.user).to.have.property('id');",
+                  "    pm.expect(jsonData.user).to.have.property('email');",
+                  "    ",
+                  "    // Save token for later use",
+                  "    if (jsonData.token) {",
+                  "        pm.environment.set('auth_token', jsonData.token);",
+                  "        console.log('Token saved:', jsonData.token.substring(0, 20) + '...');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "User-Agent",
+                "value": "PostmanRuntime/7.26.8"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"{{unique_name}}\",\n    \"email\": \"{{unique_email}}\",\n    \"phone\": \"{{unique_phone}}\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// If we have a registered email from previous step, use it",
+                  "const registeredEmail = pm.variables.get('unique_email');",
+                  "if (registeredEmail) {",
+                  "    pm.variables.set('login_email', registeredEmail);",
+                  "} else {",
+                  "    // Fallback to a test email",
+                  "    pm.variables.set('login_email', 'test@example.com');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login successful', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.token).to.not.be.null;",
+                  "    ",
+                  "    // Save token for subsequent requests",
+                  "    if (jsonData.token) {",
+                  "        pm.environment.set('auth_token', jsonData.token);",
+                  "        console.log('Auth token saved successfully');",
+                  "    }",
+                  "    ",
+                  "    if (jsonData.user) {",
+                  "        pm.environment.set('user_id', jsonData.user.id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{login_email}}\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ride Requests",
+      "item": [
+        {
+          "name": "Request Ride - Dhaka (5km radius)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Check if token exists",
+                  "const token = pm.environment.get('auth_token');",
+                  "if (!token) {",
+                  "    console.warn('No auth token found! Please login first.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Ride request successful', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.available_drivers).to.be.an('array');",
+                  "    ",
+                  "    // Log number of drivers found",
+                  "    console.log('✅ Drivers found: ' + jsonData.total_drivers_found);",
+                  "    ",
+                  "    if (jsonData.available_drivers && jsonData.available_drivers.length > 0) {",
+                  "        pm.expect(jsonData.available_drivers[0]).to.have.property('distance_km');",
+                  "        pm.expect(jsonData.available_drivers[0]).to.have.property('car_model');",
+                  "        pm.expect(jsonData.available_drivers[0]).to.have.property('location');",
+                  "        ",
+                  "        // Display first driver info",
+                  "        const firstDriver = jsonData.available_drivers[0];",
+                  "        console.log(`🚗 Nearest driver: ${firstDriver.driver_name} - ${firstDriver.car_model} (${firstDriver.distance_km}km)`);",
+                  "        ",
+                  "        // Verify sorting by distance",
+                  "        const distances = jsonData.available_drivers.map(d => parseFloat(d.distance_km));",
+                  "        const isSorted = distances.every((val, i, arr) => !i || arr[i-1] <= val);",
+                  "        pm.expect(isSorted).to.be.true;",
+                  "        console.log('✅ Drivers are properly sorted by distance');",
+                  "    } else {",
+                  "        console.log('⚠️ No drivers found within the specified radius');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pickup_lat\": 23.8103,\n    \"pickup_lng\": 90.4125,\n    \"radius_km\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ride/request",
+              "host": ["{{base_url}}"],
+              "path": ["ride", "request"]
+            }
+          }
+        },
+        {
+          "name": "Request Ride - Different Location",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Ride request returns results', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    console.log(`📍 Location: ${jsonData.pickup_location.lat}, ${jsonData.pickup_location.lng}`);",
+                  "    console.log(`📊 Found ${jsonData.total_drivers_found} drivers within ${jsonData.radius_km}km`);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pickup_lat\": 23.7920,\n    \"pickup_lng\": 90.4050,\n    \"radius_km\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ride/request",
+              "host": ["{{base_url}}"],
+              "path": ["ride", "request"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "item": [
+        {
+          "name": "Invalid Coordinates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 400 for invalid coordinates', function() {",
+                  "    pm.response.to.have.status(400);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    console.log('✅ Error handled correctly:', jsonData.message || 'Invalid coordinates');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pickup_lat\": 100,\n    \"pickup_lng\": 200,\n    \"radius_km\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ride/request",
+              "host": ["{{base_url}}"],
+              "path": ["ride", "request"]
+            }
+          }
+        },
+        {
+          "name": "Missing Auth Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 401 for missing auth token', function() {",
+                  "    pm.response.to.have.status(401);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    pm.expect(jsonData.message || jsonData.error).to.exist;",
+                  "    console.log('✅ Unauthorized access properly rejected');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pickup_lat\": 23.8103,\n    \"pickup_lng\": 90.4125,\n    \"radius_km\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ride/request",
+              "host": ["{{base_url}}"],
+              "path": ["ride", "request"]
+            }
+          }
+        },
+        {
+          "name": "Radius Too Large",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Handles large radius gracefully', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    console.log(`🌍 Search radius: ${jsonData.radius_km}km, Found: ${jsonData.total_drivers_found} drivers`);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pickup_lat\": 23.8103,\n    \"pickup_lng\": 90.4125,\n    \"radius_km\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ride/request",
+              "host": ["{{base_url}}"],
+              "path": ["ride", "request"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Health check successful', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    console.log('🟢 System is healthy:', jsonData.message || 'API is running');",
+                  "    if (jsonData.timestamp) {",
+                  "        console.log('🕐 Server time:', new Date(jsonData.timestamp).toLocaleString());",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "console.log('🚀 Starting request:', pm.info.requestName);",
+          "",
+          "// Add timestamp for logging",
+          "const requestTime = new Date().toISOString();",
+          "pm.variables.set('request_time', requestTime);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "console.log('✅ Request completed:', pm.info.requestName);",
+          "console.log('📊 Response time:', pm.response.responseTime + 'ms');",
+          "console.log('----------------------------------------');"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
