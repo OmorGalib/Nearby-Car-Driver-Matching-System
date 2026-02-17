@@ -3,33 +3,48 @@ require('dotenv').config();
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-const sequelize = new Sequelize(
-  isProduction 
-    ? process.env.DATABASE_URL 
-    : {
-        database: process.env.DB_NAME,
-        username: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT,
-        dialect: 'postgres',
-      },
-  {
+let sequelize;
+
+if (isProduction) {
+  // For production (Neon.tech serverless)
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
-    logging: !isProduction ? console.log : false,
-    dialectOptions: isProduction ? {
+    logging: false,
+    dialectOptions: {
       ssl: {
         require: true,
         rejectUnauthorized: false
-      }
-    } : {},
+      },
+      // Important for serverless
+      keepAlive: true
+    },
     pool: {
-      max: 5,
+      max: 2, // Reduce for serverless
       min: 0,
       acquire: 30000,
-      idle: 10000
+      idle: 10000,
+      evict: 10000
     }
-  }
-);
+  });
+} else {
+  // For local development
+  sequelize = new Sequelize(
+    process.env.DB_NAME,
+    process.env.DB_USER,
+    process.env.DB_PASSWORD,
+    {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      dialect: 'postgres',
+      logging: console.log,
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+      }
+    }
+  );
+}
 
 module.exports = sequelize;

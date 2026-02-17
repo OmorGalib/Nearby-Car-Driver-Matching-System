@@ -10,12 +10,20 @@ require('dotenv').config();
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for Swagger UI
+}));
 app.use(cors());
 
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware (for debugging)
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
 
 // Swagger configuration
 const swaggerOptions = {
@@ -29,7 +37,7 @@ const swaggerOptions = {
     servers: [
       {
         url: process.env.NODE_ENV === 'production' 
-          ? 'https://your-app.vercel.app/api' 
+          ? 'https://nearby-car-driver-matching-system.vercel.app/api' 
           : 'http://localhost:3000/api',
       },
     ],
@@ -49,16 +57,35 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Health check endpoint (root level)
+app.get('/health', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API Routes
 app.use('/api', apiRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err.stack);
   res.status(500).json({
     success: false,
     message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
 });
 
@@ -70,20 +97,24 @@ app.use((req, res) => {
   });
 });
 
-// Database connection and sync
+// Database connection function (not auto-connected)
 const initializeDatabase = async () => {
   try {
     await sequelize.authenticate();
-    console.log('Database connected successfully');
-
-    // Sync all models (in development)
+    console.log('✅ Database connected successfully');
+    
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true, logging: false });
-      console.log('Database synced');
+      await sequelize.sync({ alter: true });
+      console.log('✅ Database synced');
     }
   } catch (error) {
-    console.error('Unable to connect to database:', error);
+    console.error('❌ Unable to connect to database:', error);
   }
 };
 
-module.exports = { app, initializeDatabase };
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  initializeDatabase();
+}
+
+module.exports = app;
