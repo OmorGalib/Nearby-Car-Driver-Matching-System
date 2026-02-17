@@ -1,8 +1,10 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const sequelize = new Sequelize(
-  process.env.NODE_ENV === 'production' 
+  isProduction 
     ? process.env.DATABASE_URL 
     : {
         database: process.env.DB_NAME,
@@ -11,14 +13,23 @@ const sequelize = new Sequelize(
         host: process.env.DB_HOST,
         port: process.env.DB_PORT,
         dialect: 'postgres',
-        logging: process.env.NODE_ENV === 'development' ? console.log : false,
-        dialectOptions: process.env.NODE_ENV === 'production' ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false
-          }
-        } : {}
+      },
+  {
+    dialect: 'postgres',
+    logging: !isProduction ? console.log : false,
+    dialectOptions: isProduction ? {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
       }
+    } : {},
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
 );
 
 module.exports = sequelize;
