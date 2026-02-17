@@ -1,5 +1,5 @@
 const sequelize = require('../src/config/database');
-const { Driver, Car, User } = require('../src/models');
+const { Driver, Car } = require('../src/models');
 
 const driversData = [
   // Dhaka locations
@@ -134,40 +134,52 @@ const driversData = [
 ];
 
 const seedProduction = async () => {
+  console.log('🌍 Starting production database seed...');
+  
   try {
-    console.log('Connecting to production database...');
     await sequelize.authenticate();
-    console.log('Database connected successfully');
+    console.log('✅ Database connected successfully');
 
     // Check if drivers already exist
     const driverCount = await Driver.count();
-    
+    console.log(`📊 Current driver count: ${driverCount}`);
+
     if (driverCount === 0) {
-      console.log('Seeding database with initial data...');
+      console.log('📦 Seeding database with initial data...');
       
       for (const data of driversData) {
         try {
-          const driver = await Driver.create(data.driver);
-          await Car.create({
-            ...data.car,
-            driver_id: driver.id
+          // Check if driver already exists by email
+          const existingDriver = await Driver.findOne({ 
+            where: { email: data.driver.email } 
           });
-          console.log(`Created driver: ${driver.name}`);
+          
+          if (!existingDriver) {
+            const driver = await Driver.create(data.driver);
+            await Car.create({
+              ...data.car,
+              driver_id: driver.id
+            });
+            console.log(`✅ Created driver: ${driver.name}`);
+          } else {
+            console.log(`⏭️ Driver already exists: ${data.driver.name}`);
+          }
         } catch (error) {
-          console.log(`Skipped: ${data.driver.name} - ${error.message}`);
+          console.log(`⚠️ Error with ${data.driver.name}: ${error.message}`);
         }
       }
       
-      console.log('Database seeding completed!');
+      console.log('🎉 Database seeding completed!');
     } else {
-      console.log(`Database already has ${driverCount} drivers. Skipping seed.`);
+      console.log(`ℹ️ Database already has ${driverCount} drivers. Skipping seed.`);
     }
     
     process.exit(0);
   } catch (error) {
-    console.error('Error seeding database:', error);
+    console.error('❌ Fatal error:', error);
     process.exit(1);
   }
 };
 
+// Run the seed function
 seedProduction();
